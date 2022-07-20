@@ -8,15 +8,15 @@ You can install Fury and PyVista using 'pip' comand:
 pip install fury pyvista
 ```
 
-> The python script has two options to run:
->
-> > **Option 1 - Mode snapshot:**: to take 3D snapshots from the all frames in the source folder (useful for making movies).
+The python script has two options to run:
+
+**Option 1 - Mode snapshot:**: to take 3D snapshots from the all frames in the source folder (useful for making movies).
 
 ```bash
 python fury3D.py path_source_folder
 ```
 
-> > **Option 2 - Mode interactive:** to interact with the scene.
+**Option 2 - Mode interactive:** to interact with the scene.
 
 ```bash
 python fury3D.py path_source_folder frame_ID
