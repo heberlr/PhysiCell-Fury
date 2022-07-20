@@ -40,23 +40,23 @@ Besides the menu options, you can interact with the scene using your mouse or tr
 - _Move camera_: hold shift + the left button of the mouse and drag.
 - _Zoom_: hold right button of the mouse and drag or use the scroll button of the mouse.
 
-###Example:
+### Example:
 
 ```bash
 python fury3D.py output_immune 0
 ```
 
 Scene: <br>
-![alt text](https://github.com/heberlr/PhysiCell-Fury/blob/dev_heber/images/example_immune_model.png?raw=true =200x200)
+<img src="https://github.com/heberlr/PhysiCell-Fury/blob/dev_heber/images/example_immune_model.png" alt="TITLE" width="400" height="400"/>
 
 Rotation and zoom: <br>
-![](images/example_immune_model_rotation_zoom.png =400x200)
+<img src="https://github.com/heberlr/PhysiCell-Fury/blob/dev_heber/images/example_immune_model_rotation_zoom.png" alt="TITLE" width="800" height="400"/>
 
 Cutting planes: <br>
-![](images/example_immune_model_cutting.png =600x200)
+<img src="https://github.com/heberlr/PhysiCell-Fury/blob/dev_heber/images/example_immune_model_cutting.png" alt="TITLE" width="1000" height="330"/>
 
 Oxygen concentration: <br>
-![](images/example_immune_model_oxygen.png =600x250)
+<img src="https://github.com/heberlr/PhysiCell-Fury/blob/dev_heber/images/example_immune_model_oxygen.png" alt="TITLE" width="1000" height="450"/>
 
 ### Custom example:
 
