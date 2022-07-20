@@ -47,7 +47,8 @@ python fury3D.py output_immune 0
 ```
 
 Scene: <br>
-![](images/example_immune_model.png =200x200)
+
+![](https://raw.githubusercontent.com/heberlr/PhysiCell-Fury/tree/dev_heber/images =200x200)
 
 Rotation and zoom: <br>
 ![](images/example_immune_model_rotation_zoom.png =400x200)
