@@ -1,5 +1,6 @@
 from fury3D import CreateScene, CreateSnapshots
 from pyMCDS import pyMCDS
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import sys
@@ -40,6 +41,6 @@ if __name__ == '__main__':
       print("Please provide\n 1 arg [folder]: to taking snapshots from the folder \n or provide 2 args [folder] [frame ID]: to interact with scene!")
       sys.exit(1)
     if (len(sys.argv) == 3):
-      CreateScene(sys.argv[1],"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
+      CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
     if (len(sys.argv) == 2):
-      CreateSnapshots(sys.argv[1], coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
+      CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
