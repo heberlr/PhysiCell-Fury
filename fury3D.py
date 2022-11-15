@@ -12,6 +12,8 @@ import numpy as np
 from fury import window, actor, ui
 from fury.data import read_viz_icons, fetch_viz_icons
 import pyvista as pv
+import dipy.io.vtk as io_vtk
+import fury.utils as ut_vtk
 import sys,os
 
 def coloring_function_default(df_cells):
@@ -212,6 +214,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     # Add others Substrates
     for i in range(1,len(substrates)):
         grid.cell_data.set_array( np.transpose(mcds.get_concentrations(substrates[i]), (1,0,2)).flatten(order="F"),substrates[i]) # CHECK ORDER ON PYMCDS
+
     def change_substrate(combobox):
         selected_substrate = combobox.selected_text
         grid.cell_data.active_scalars_name = selected_substrate # select substrate on grid
@@ -304,11 +307,16 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         hide_all_widgets()
         listbox.set_visibility(False)
         FileName = os.path.splitext(InputFile)[0]+".jpg"
+        FileNameVTK = os.path.splitext(InputFile)[0]+".vtk"
         if ( type(folder) == str ):
             pathSave = folder+FileName
+            pathSaveVTK = folder+FileNameVTK
         else:
             pathSave = folder / FileName
+            pathSaveVTK = folder / FileNameVTK
         window.snapshot(showm.scene,size=size_window,fname=pathSave)
+        # grid.save(pathSaveVTK,binary=False) # save vtk file
+        showm.scene.rm_all() # clean up the scene
     else:
         showm.start()
 
