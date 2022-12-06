@@ -21,6 +21,22 @@ def my_custom_coloring_function(df_cells):
     Colors[GFP[1],2] = 0
     return Colors
 
+def coloring_function_KI67_stain(df_cells):
+    Cell_phase = np.array([df_cells['current_phase']])
+    Ki67p = np.where(Cell_phase == 2)
+    Ki67n = np.where(Cell_phase != 2)
+    # Colors
+    Colors = np.ones((len(df_cells),4)) # 4 channels RGBO
+    # Ki67+ cells - Yellow
+    Colors[Ki67p[1],0] = 1
+    Colors[Ki67p[1],1] = 1
+    Colors[Ki67p[1],2] = 0
+    # Ki67- cells - Blue
+    Colors[Ki67n[1],0] = 0
+    Colors[Ki67n[1],1] = 0
+    Colors[Ki67n[1],2] = 1
+    return Colors
+
 def my_custom_header_function(mcds):
     # Current time
     curr_time = round(mcds.get_time(),2) # min
@@ -41,6 +57,14 @@ if __name__ == '__main__':
       print("Please provide\n 1 arg [folder]: to taking snapshots from the folder \n or provide 2 args [folder] [frame ID]: to interact with scene!")
       sys.exit(1)
     if (len(sys.argv) == 3):
-      CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
+      # AddBox = {'xmin': 600, 'xmax': 800, 'ymin': -370, 'ymax': -170, 'zmin': 150, 'zmax': 350} # output00 (200 microns^3)
+      AddBox = {'xmin': -70, 'xmax': 280, 'ymin': 650, 'ymax': 1000, 'zmin': 320, 'zmax': 670} # output01 (350 microns^3)
+      # CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, AddBox = AddBox)
+      CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, BoxCrop = AddBox, PlotNucleus=True)
+      # SNAPSHOTS
+      # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, AddBox = AddBox)
+      # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox)
+      # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, AddBox = AddBox)
+      # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox)
     if (len(sys.argv) == 2):
-      CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function)
+      CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, PlotNucleus=True)
