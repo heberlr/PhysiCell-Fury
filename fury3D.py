@@ -50,7 +50,11 @@ def header_function_default(mcds):
     title_text = "Current time: %02d days, %02d hours, and %0.2f minutes, %d agents"%(time_days,time_hours,time_min,Num_cells)
     return title_text
 
-def CreateScene(folder, InputFile, coloring_function = coloring_function_default, header_function = header_function_default, SaveImage=False):
+def DrawBox(Bounds, Color, scaling):
+    lines = [np.array([[Bounds['xmin'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmax']]])]
+    return actor.line(lines, Color, linewidth=0.001*scaling)
+
+def CreateScene(folder, InputFile, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), SaveImage=False, BoxCrop = None, AddBox = None, PlotNucleus=False):
     # Reading data
     mcds=pyMCDS(InputFile,folder)
     # Define domain size
@@ -61,51 +65,69 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     dx = (X.max() - X.min()) / (X.shape[0]-1)
     dy = (Y.max() - Y.min()) / (Y.shape[0]-1)
     dz = (Z.max() - Z.min()) / (Z.shape[0]-1)
-    x_min_domain = round(mcds.data['mesh']['x_coordinates'][0,0,0]-0.5*dx)
-    y_min_domain = round(mcds.data['mesh']['y_coordinates'][0,0,0]-0.5*dy)
-    z_min_domain = round(mcds.data['mesh']['z_coordinates'][0,0,0]-0.5*dz)
-    x_max_domain = round(mcds.data['mesh']['x_coordinates'][-1,-1,-1]+0.5*dx)
-    y_max_domain = round(mcds.data['mesh']['y_coordinates'][-1,-1,-1]+0.5*dy)
-    z_max_domain = round(mcds.data['mesh']['z_coordinates'][-1,-1,-1]+0.5*dz)
+    Bounds = {'xmin': round(mcds.data['mesh']['x_coordinates'][0,0,0]-0.5*dx), 'xmax': round(mcds.data['mesh']['x_coordinates'][-1,-1,-1]+0.5*dx), 'ymin': round(mcds.data['mesh']['y_coordinates'][0,0,0]-0.5*dy), 'ymax': round(mcds.data['mesh']['y_coordinates'][-1,-1,-1]+0.5*dy), 'zmin': round(mcds.data['mesh']['z_coordinates'][0,0,0]-0.5*dz), 'zmax': round(mcds.data['mesh']['z_coordinates'][-1,-1,-1]+0.5*dz)}
+
     # Cell positions
-    ncells = len(mcds.data['discrete_cells']['ID'])
-    C_xyz = np.zeros((ncells,3))
-    C_xyz[:,0] =  mcds.data['discrete_cells']['position_x']
-    C_xyz[:,1] =  mcds.data['discrete_cells']['position_y']
-    C_xyz[:,2] =  mcds.data['discrete_cells']['position_z']
-    # Cell Radius Calculation
-    C_radii = np.cbrt(mcds.data['discrete_cells']['total_volume'] * 0.75 / np.pi) # r = np.cbrt(V * 0.75 / pi)
+    df_Cells = mcds.get_cell_df()
+    if ( BoxCrop ):
+        Bounds = BoxCrop
+        df_Cells = df_Cells.loc[ (df_Cells['position_x'] > BoxCrop['xmin']) & (df_Cells['position_x'] < BoxCrop['xmax']) & (df_Cells['position_y'] > BoxCrop['ymin']) & (df_Cells['position_y'] < BoxCrop['ymax']) & (df_Cells['position_z'] > BoxCrop['zmin']) & (df_Cells['position_z'] < BoxCrop['zmax']) ]
+    # Define boundaries of domain
+    x_min_domain = Bounds['xmin']; y_min_domain = Bounds['ymin']; z_min_domain = Bounds['zmin']
+    x_max_domain = Bounds['xmax']; y_max_domain = Bounds['ymax']; z_max_domain = Bounds['zmax']
+    # Cell positions, radius, and colors
+    C_xyz = np.zeros((len(df_Cells),3))
+    C_xyz[:,0] =  df_Cells['position_x']
+    C_xyz[:,1] =  df_Cells['position_y']
+    C_xyz[:,2] =  df_Cells['position_z']
+    # Cytoplasm Radius Calculation
+    C_radii = np.cbrt(df_Cells['total_volume'] * 0.75 / np.pi).to_numpy() # r = np.cbrt(V * 0.75 / pi)
+    # Cytoplasm Radius Calculation
+    C_radii_nucleus = np.cbrt(df_Cells['nuclear_volume'] * 0.75 / np.pi).to_numpy()
     # Coloring
-    C_colors = coloring_function(mcds.get_cell_df())
+    C_colors = coloring_function(df_Cells)
+    C_colors_nucleus = C_colors.copy()
 
     ###############################################################################################
     # Creaating Scene
-    size_window = (1000,1000)
+    scaling = size_window[0]
     showm = window.ShowManager(size=size_window, reset_camera=True, order_transparent=True, title="PhysiCell Fury: "+InputFile)
+    domain_size = ( x_max_domain-x_min_domain, y_max_domain-y_min_domain, z_max_domain-z_min_domain )
+    domain_center = ( x_min_domain + 0.5*domain_size[0],  y_min_domain + 0.5*domain_size[1],  z_min_domain + 0.5*domain_size[2] )
+    camera_position = ( domain_center[0] -1.375*domain_size[0], domain_center[1], domain_center[2] + 3.5*domain_size[2] )
+    camera_focalpoint = domain_center
+    camera_viewup = (0,1,0)
+    # showm.scene.SetBackground((1,1,1)) Background color
     ###############################################################################################
     # TITLE
     title_text = header_function(mcds)
-    title = ui.TextBlock2D(text=title_text, font_size=20, font_family='Arial', justification='center', vertical_justification='bottom', bold=False, italic=False, shadow=False, color=(1, 1, 1), bg_color=None, position=(500, 900))
+    title = ui.TextBlock2D(text=title_text, font_size=scaling//50, font_family='Arial', justification='center', vertical_justification='bottom', bold=False, italic=False, shadow=False, color=(1, 1, 1), bg_color=None, position=(round(0.5*scaling), round(0.9*scaling)))
     showm.scene.add(title)
+    GrayColor = np.array([0.5,0.5,0.5])
+    WhiteColor = np.array([1.0,1.0,1.0])
     # Drawing Domain Boundaries
-    lines = [np.array([[x_min_domain,y_min_domain,z_min_domain],[x_max_domain,y_min_domain,z_min_domain],[x_max_domain,y_max_domain,z_min_domain],[x_min_domain,y_max_domain,z_min_domain],[x_min_domain,y_min_domain,z_min_domain],[x_min_domain,y_min_domain,z_max_domain],[x_min_domain,y_max_domain,z_max_domain],[x_min_domain,y_max_domain,z_min_domain],[x_min_domain,y_max_domain,z_max_domain],[x_max_domain,y_max_domain,z_max_domain],[x_max_domain,y_max_domain,z_min_domain],[x_max_domain,y_max_domain,z_min_domain],[x_max_domain,y_min_domain,z_min_domain],[x_max_domain,y_min_domain,z_max_domain],[x_max_domain,y_max_domain,z_max_domain],[x_max_domain,y_min_domain,z_max_domain],[x_min_domain,y_min_domain,z_max_domain]])]
-    colors = np.array([0.5, 0.5, 0.5]) # Gray
-    domain_box = actor.line(lines, colors)
-    showm.scene.add(domain_box)
+    showm.scene.add(DrawBox(Bounds, GrayColor, scaling))
+    # Drawing Additional Box
+    if ( AddBox ): showm.scene.add(DrawBox(AddBox, WhiteColor, scaling))
     ###############################################################################################
     # Creating Sphere Actor for all cells
-    sphere_actor = actor.sphere(centers=C_xyz,colors=C_colors,radii=C_radii)
+    if ( PlotNucleus ):
+        C_colors_nucleus[:,-1] = 1
+        C_colors[:,-1] = 0.3
+        sphere_actor_nucleus = actor.sphere(centers=C_xyz,colors=C_colors_nucleus,radii=C_radii_nucleus) # Nucleus
+        showm.scene.add(sphere_actor_nucleus)
+    sphere_actor = actor.sphere(centers=C_xyz,colors=C_colors,radii=C_radii) # Cytoplasm
     showm.scene.add(sphere_actor)
     sphere_actor_cutted = None
     flag_cut = False
     ###############################################################################################
     # Planes sections
-    box_actorXY_min = actor.box(np.array([[0,0,z_min_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(2*y_max_domain,2*x_max_domain,0.5*dz))
-    box_actorXY_max = actor.box(np.array([[0,0,z_max_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(2*y_max_domain,2*x_max_domain,0.5*dz))
-    box_actorXZ_min = actor.box(np.array([[0,y_min_domain,0]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(2*x_max_domain,0.5*dy,2*z_max_domain))
-    box_actorXZ_max = actor.box(np.array([[0,y_max_domain,0]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(2*x_max_domain,0.5*dy,2*z_max_domain))
-    box_actorYZ_min = actor.box(np.array([[x_min_domain,0,0]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,2*z_max_domain,2*y_max_domain))
-    box_actorYZ_max = actor.box(np.array([[x_max_domain,0,0]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,2*z_max_domain,2*y_max_domain))
+    box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],z_min_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    box_actorXY_max = actor.box(np.array([[domain_center[0],domain_center[1],z_max_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    box_actorXZ_min = actor.box(np.array([[domain_center[0],y_min_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    box_actorXZ_max = actor.box(np.array([[domain_center[0],y_max_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    box_actorYZ_min = actor.box(np.array([[x_min_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
+    box_actorYZ_max = actor.box(np.array([[x_max_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
     showm.scene.add(box_actorXY_min)
     showm.scene.add(box_actorXY_max)
     showm.scene.add(box_actorXZ_min)
@@ -113,45 +135,48 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     showm.scene.add(box_actorYZ_min)
     showm.scene.add(box_actorYZ_max)
     # Section in plane XY
-    line_slider_xy = ui.LineDoubleSlider2D(center=(150, 50),initial_values=(z_min_domain,z_max_domain), min_value=z_min_domain, max_value=z_max_domain, orientation="horizontal")
+    line_slider_xy = ui.LineDoubleSlider2D(center=(round(0.2*scaling), round(0.05*scaling)),initial_values=(z_min_domain,z_max_domain), min_value=z_min_domain, max_value=z_max_domain, orientation="horizontal", font_size=scaling//50)
     showm.scene.add(line_slider_xy)
     def translate_planeXY(slider):
-        plane_min = np.array([0,0,z_max_domain + slider.left_disk_value])
-        plane_max = np.array([0,0,z_min_domain + slider.right_disk_value])
+        plane_min = np.array([0,0, slider.left_disk_value-z_min_domain])
+        plane_max = np.array([0,0, slider.right_disk_value-z_max_domain])
         box_actorXY_min.SetPosition(plane_min)
         box_actorXY_max.SetPosition(plane_max)
     line_slider_xy.on_change = translate_planeXY
-    line_slider_xy_label = ui.TextBlock2D(position=(260,40),text="plane XY (microns)")
+    line_slider_xy_label = ui.TextBlock2D(position=(round(0.35*scaling),round(0.04*scaling)),text="plane XY (microns)", font_size=scaling//50)
     showm.scene.add(line_slider_xy_label)
     # Section in plane XZ
-    line_slider_xz = ui.LineDoubleSlider2D(center=(150, 100), initial_values=(y_min_domain,y_max_domain), min_value=y_min_domain, max_value=y_max_domain, orientation="horizontal")
+    line_slider_xz = ui.LineDoubleSlider2D(center=(round(0.2*scaling), round(0.1*scaling)), initial_values=(y_min_domain,y_max_domain), min_value=y_min_domain, max_value=y_max_domain, orientation="horizontal", font_size=scaling//50)
     showm.scene.add(line_slider_xz)
     def translate_planeXZ(slider):
-        plane_min = np.array([0,y_max_domain+slider.left_disk_value,0])
-        plane_max = np.array([0,y_min_domain+slider.right_disk_value,0])
+        plane_min = np.array([0,slider.left_disk_value-y_min_domain,0])
+        plane_max = np.array([0,slider.right_disk_value-y_max_domain,0])
         box_actorXZ_min.SetPosition(plane_min)
         box_actorXZ_max.SetPosition(plane_max)
     line_slider_xz.on_change = translate_planeXZ
-    line_slider_xz_label = ui.TextBlock2D(position=(260,90),text="plane XZ (microns)")
+    line_slider_xz_label = ui.TextBlock2D(position=(round(0.35*scaling),round(0.09*scaling)),text="plane XZ (microns)", font_size=scaling//50)
     showm.scene.add(line_slider_xz_label)
     # Section in plane YZ
-    line_slider_yz = ui.LineDoubleSlider2D(center=(150, 150), initial_values=(x_min_domain,x_max_domain), min_value=x_min_domain, max_value=x_max_domain, orientation="horizontal")
+    line_slider_yz = ui.LineDoubleSlider2D(center=(round(0.2*scaling), round(0.15*scaling)), initial_values=(x_min_domain,x_max_domain), min_value=x_min_domain, max_value=x_max_domain, orientation="horizontal", font_size=scaling//50)
     line_slider_yz.default_color = (1,0,0) # Red
     showm.scene.add(line_slider_yz)
     def translate_planeYZ(slider):
-        plane_min = np.array([x_max_domain+slider.left_disk_value,0,0])
-        plane_max = np.array([x_min_domain+slider.right_disk_value,0,0])
+        plane_min = np.array([slider.left_disk_value-x_min_domain,0,0])
+        plane_max = np.array([slider.right_disk_value-x_max_domain,0,0])
         box_actorYZ_min.SetPosition(plane_min)
         box_actorYZ_max.SetPosition(plane_max)
     line_slider_yz.on_change = translate_planeYZ
-    line_slider_yz_label = ui.TextBlock2D(position=(260,140),text="plane YZ (microns)")
+    line_slider_yz_label = ui.TextBlock2D(position=(round(0.35*scaling),round(0.14*scaling)),text="plane YZ (microns)", font_size=scaling//50)
     showm.scene.add(line_slider_yz_label)
     ###############################################################################################
     # Button to slice
     def AddCells():
         global sphere_actor_cutted
         idx_cells = np.argwhere( (C_xyz[:,2] > line_slider_xy.left_disk_value) & ( C_xyz[:,2] < line_slider_xy.right_disk_value) & (C_xyz[:,1] > line_slider_xz.left_disk_value) & ( C_xyz[:,1] < line_slider_xz.right_disk_value) & (C_xyz[:,0] > line_slider_yz.left_disk_value) & ( C_xyz[:,0] < line_slider_yz.right_disk_value) ).flatten()
-        sphere_actor_cutted = actor.sphere(centers=C_xyz[idx_cells,:],colors=C_colors[idx_cells,:],radii=C_radii[idx_cells])
+        if ( PlotNucleus ):
+            sphere_actor_cutted_nucleus = actor.sphere(centers=C_xyz[idx_cells,:],colors=C_colors_nucleus[idx_cells,:],radii=C_radii_nucleus[idx_cells]) # Nucleus
+            showm.scene.add(sphere_actor_cutted_nucleus)
+        sphere_actor_cutted = actor.sphere(centers=C_xyz[idx_cells,:],colors=C_colors[idx_cells,:],radii=C_radii[idx_cells]) # Cytoplasm
         showm.scene.add(sphere_actor_cutted)
         return idx_cells.shape[0]
     def SliceCells(i_ren, _obj, _button):
@@ -159,6 +184,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         if (button_slice_label.message == 'Cut'):
             # Clear up the cells
             showm.scene.rm(sphere_actor)
+            if ( PlotNucleus ): showm.scene.rm(sphere_actor_nucleus)
             # Selecting the cells in the region
             NumCells = AddCells()
             print("------------------------------------------------------------------\n Cut")
@@ -172,6 +198,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         else:
             # Clear up the cells
             showm.scene.rm(sphere_actor_cutted)
+            if ( PlotNucleus ): showm.scene.rm(sphere_actor_cutted_nucleus)
             # Selecting the cells in the region
             NumCells = AddCells()
             print("------------------------------------------------------------------\n Cut")
@@ -182,22 +209,27 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
             print("------------------------------------------------------------------")
         hide_all_widgets()
         i_ren.force_render()
-    button_slice_label = ui.TextBlock2D(text="Cut",font_size=20, font_family='Arial', justification='center', vertical_justification='middle', bold=True, italic=False, shadow=False, color=(1, 1, 1), bg_color=None, position=(550, 100))
+    button_slice_label = ui.TextBlock2D(text="Cut", font_size=scaling//50, font_family='Arial', justification='center', vertical_justification='middle', bold=True, italic=False, shadow=False, color=(1, 1, 1), bg_color=None, position=(round(0.6*scaling), round(0.1*scaling)))
     # First we need to fetch some icons that are included in FURY.
     fetch_viz_icons()
-    button_slice = ui.Button2D(icon_fnames=[('square',read_viz_icons(fname="stop2.png"))],size=(100,50) ,position=(500,75))
+    button_slice = ui.Button2D(icon_fnames=[('square',read_viz_icons(fname="stop2.png"))],size=(round(0.1*scaling),round(0.05*scaling)) ,position=(round(0.55*scaling),round(0.075*scaling)))
     button_slice.on_left_mouse_button_clicked = SliceCells
     showm.scene.add(button_slice)
     showm.scene.add(button_slice_label)
     ###############################################################################################
     # Add referencial vectors axis
     center = np.array([[x_max_domain,y_min_domain,z_max_domain],[x_max_domain,y_min_domain,z_max_domain],[x_max_domain,y_min_domain,z_max_domain]])
-    direction_x = np.array([[-1,0,0],[0,1,0],[0,0,-1]])
-    arrow_actor = actor.arrow(center,direction_x,np.array([[1,0,0],[0,1,0],[0,0,1]]),heights=0.5*min(x_max_domain,y_max_domain,z_max_domain),tip_radius=0.1)
+    if ( x_max_domain > 0): x_direction = np.array([-1,0,0])
+    else: x_direction = np.array([1,0,0])
+    y_direction = np.array([0,1,0])
+    if ( z_max_domain > 0): z_direction = np.array([0,0,-1])
+    else: z_direction = np.array([0,0,1])
+    direction_arrow = np.array([x_direction,y_direction,z_direction])
+    arrow_actor = actor.arrow(center,direction_arrow,np.array([[1,0,0],[0,1,0],[0,0,1]]),heights=0.25*min(domain_size),tip_radius=0.1)
     showm.scene.add(arrow_actor)
     # Substrates
     substrates = mcds.get_substrate_names()
-    substrate_combobox = ui.ComboBox2D(items=substrates, placeholder="Choose substrate", position=(150, 50), size=(500, 100))
+    substrate_combobox = ui.ComboBox2D(items=substrates, placeholder="Choose substrate", position=(round(0.15*scaling), round(0.05*scaling)), size=(round(0.5*scaling), round(0.1*scaling)), font_size=scaling//50)
     # Preparing pyvista mesh
     substrate0 = np.transpose(mcds.get_concentrations(substrates[0]), (1,0,2)) # CHECK ORDER ON PYMCDS
     # Create the spatial reference
@@ -233,7 +265,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     # Menu list
     MenuValues = ['Substrates','Cutting plane XY','Cutting plane XZ','Cutting plane YZ','Reset Camera','Reset','Snapshot']
     Actors = [[substrate_combobox],[button_slice,button_slice_label],[line_slider_xy,line_slider_xy_label],[line_slider_xz,line_slider_xz_label],[line_slider_yz,line_slider_yz_label]]
-    listbox = ui.ListBox2D(values=MenuValues, position=(700, 0), size=(300, 200), multiselection=False)
+    listbox = ui.ListBox2D(values=MenuValues, position=(round(0.7*scaling), 0), size=(round(0.3*scaling), round(0.2*scaling)), multiselection=False, font_size=scaling//50)
     def hide_all_widgets():
         for actor  in Actors:
             for element in actor:
@@ -272,7 +304,8 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
             button_slice.set_visibility(True)
             button_slice_label.set_visibility(True)
         if MenuValues[MenuValues.index(listbox.selected[0])] == 'Reset Camera':
-            showm.scene.set_camera(position=(2.75*x_min_domain, 0, 7.0*z_max_domain), focal_point=(0, 0, 0), view_up=(0, 0, 0))
+            showm.scene.set_camera( position=camera_position, focal_point=camera_focalpoint, view_up=camera_viewup )
+            # print(showm.scene.get_camera())
         if MenuValues[MenuValues.index(listbox.selected[0])] == 'Reset':
             line_slider_xy.left_disk_value = z_min_domain
             line_slider_xy.right_disk_value = z_max_domain
@@ -283,6 +316,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
             global sphere_actor_cutted,flag_cut
             if (flag_cut):
                 showm.scene.rm(sphere_actor_cutted)
+                if ( PlotNucleus ): showm.scene.rm(sphere_actor_cutted_nucleus)
                 AddCells()
         if MenuValues[MenuValues.index(listbox.selected[0])] == 'Snapshot':
             hide_all_widgets()
@@ -293,14 +327,15 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
             else:
                 pathSave = folder / FileName
             print("Genererated: ",pathSave)
-            window.snapshot(showm.scene,size=size_window,fname=pathSave)
+            window.snapshot(showm.scene,order_transparent =True,size=(2*size_window[0],2*size_window[1]),fname=pathSave)
             listbox.set_visibility(True)
     listbox.on_change = MenuOption
     showm.scene.add(listbox)
     ###############################################################################################
     # Show Manager
     showm.scene.reset_camera()
-    showm.scene.set_camera(position=(2.75*x_min_domain, 0, 7.0*z_max_domain), focal_point=(0, 0, 0), view_up=(0, 0, 0))
+    showm.scene.set_camera( position=camera_position, focal_point=camera_focalpoint, view_up=camera_viewup )
+    # print(showm.scene.get_camera())
     ###############################################################################################
     # Save image
     if ( SaveImage ):
@@ -314,18 +349,22 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         else:
             pathSave = folder / FileName
             pathSaveVTK = folder / FileNameVTK
-        window.snapshot(showm.scene,size=size_window,fname=pathSave)
+        # window.snapshot(showm.scene,size=size_window,fname=pathSave)
+        window.record(showm.scene, out_path=pathSave, size=size_window, reset_camera=False)
         # grid.save(pathSaveVTK,binary=False) # save vtk file
         showm.scene.rm_all() # clean up the scene
     else:
         showm.start()
 
-def CreateSnapshots(folder, coloring_function = coloring_function_default, header_function = header_function_default):
-    files = list(folder.glob('out*.xml'))
-    print(files)
-    # Make snapshots
-    for file in files:
-        CreateScene(folder,os.path.basename(file),coloring_function=coloring_function, header_function=header_function,SaveImage=True)
+def CreateSnapshots(folder, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), file=None, BoxCrop = None, AddBox = None, PlotNucleus=False):
+    if (file):
+        CreateScene(folder,file,coloring_function=coloring_function, header_function=header_function,size_window=size_window,SaveImage=True, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus)
+    else:
+        files = list(folder.glob('out*.xml'))
+        print(files)
+        # Make snapshots
+        for file in files:
+            CreateScene(folder,os.path.basename(file),coloring_function=coloring_function, header_function=header_function,size_window=size_window,SaveImage=True, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus)
 
 if __name__ == '__main__':
     if (len(sys.argv) != 3 and len(sys.argv) != 2):
