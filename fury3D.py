@@ -37,7 +37,8 @@ def coloring_function_default(df_cells):
         Colors[idxs_necrotic,0] = necrotic_color[0]
         Colors[idxs_necrotic,1] = necrotic_color[1]
         Colors[idxs_necrotic,2] = necrotic_color[2]
-    return Colors
+    Colors_nucleus = Colors.copy()
+    return Colors, Colors_nucleus
 
 def header_function_default(mcds):
     # Current time
@@ -85,8 +86,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     # Cytoplasm Radius Calculation
     C_radii_nucleus = np.cbrt(df_Cells['nuclear_volume'] * 0.75 / np.pi).to_numpy()
     # Coloring
-    C_colors = coloring_function(df_Cells)
-    C_colors_nucleus = C_colors.copy()
+    C_colors, C_colors_nucleus = coloring_function(df_Cells)
 
     ###############################################################################################
     # Creaating Scene
@@ -112,8 +112,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     ###############################################################################################
     # Creating Sphere Actor for all cells
     if ( PlotNucleus ):
-        C_colors_nucleus[:,-1] = 1
-        C_colors[:,-1] = 0.3
+        C_colors[:,-1] = 0.3 # transparency on cytoplasm
         sphere_actor_nucleus = actor.sphere(centers=C_xyz,colors=C_colors_nucleus,radii=C_radii_nucleus) # Nucleus
         showm.scene.add(sphere_actor_nucleus)
     sphere_actor = actor.sphere(centers=C_xyz,colors=C_colors,radii=C_radii) # Cytoplasm
