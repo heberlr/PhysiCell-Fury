@@ -32,11 +32,11 @@ def coloring_function_KI67_stain(df_cells):
     # Colors
     Colors = np.ones((len(df_cells),4)) # 4 channels RGBO
     Colors_nucleus = np.ones((len(df_cells),4)) # 4 channels RGBO
-    # Ki67+ cells - Nucleus yellow
+    # Ki67+ cells - Nucleus white
     Colors_nucleus[Ki67p[1],0] = 1
     Colors_nucleus[Ki67p[1],1] = 1
     Colors_nucleus[Ki67p[1],2] = 1
-    # Ki67- cells - Nucleus blue
+    # Ki67- cells - Nucleus black
     Colors_nucleus[Ki67n[1],0] = 0
     Colors_nucleus[Ki67n[1],1] = 0
     Colors_nucleus[Ki67n[1],2] = 0
@@ -73,11 +73,11 @@ if __name__ == '__main__':
       # AddBox = {'xmin': 600, 'xmax': 800, 'ymin': -370, 'ymax': -170, 'zmin': 150, 'zmax': 350} # output00 (200 microns^3)
       AddBox = {'xmin': -70, 'xmax': 280, 'ymin': 650, 'ymax': 1000, 'zmin': 320, 'zmax': 670} # output01 (350 microns^3)
       # CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, AddBox = AddBox)
-      CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function, BoxCrop = AddBox, PlotNucleus=True)
+      # CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function, BoxCrop = AddBox, PlotNucleus=True)
       # SNAPSHOTS
       # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, AddBox = AddBox)
       # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox)
       # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, AddBox = AddBox)
-      # CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox)
+      CreateSnapshots(Path(sys.argv[1]),file="output%08d.xml"%int(sys.argv[2]), coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox)
     if (len(sys.argv) == 2):
       CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, PlotNucleus=True)
