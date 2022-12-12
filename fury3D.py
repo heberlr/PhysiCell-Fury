@@ -121,6 +121,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     flag_cut = False
     ###############################################################################################
     # Planes sections
+    # box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],495]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz)) # include a XY plane on scene
     box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],z_min_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
     box_actorXY_max = actor.box(np.array([[domain_center[0],domain_center[1],z_max_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
     box_actorXZ_min = actor.box(np.array([[domain_center[0],y_min_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
@@ -269,7 +270,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         for actor  in Actors:
             for element in actor:
                 element.set_visibility(False)
-        box_actorXY_min.SetVisibility(False)
+        # box_actorXY_min.SetVisibility(True) # include a XY plane on scene visible
         box_actorXY_min.SetVisibility(False)
         box_actorXY_max.SetVisibility(False)
         box_actorXZ_min.SetVisibility(False)
