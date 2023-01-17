@@ -12,7 +12,6 @@ import numpy as np
 from fury import window, actor, ui
 from fury.data import read_viz_icons, fetch_viz_icons
 import pyvista as pv
-import dipy.io.vtk as io_vtk
 import fury.utils as ut_vtk
 import sys,os
 
