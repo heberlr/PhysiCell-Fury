@@ -6,7 +6,7 @@ Heber L Rocha (hlimadar@iu.edu)
 Furkan Kurtoglu(fkurtog@iu.edu)
 """
 
-from pyMCDS import pyMCDS
+import pcDataLoader as pc
 from pathlib import Path
 import numpy as np
 from fury import window, actor, ui
@@ -21,18 +21,20 @@ def coloring_function_default(df_cells):
     Colors_default = np.array([[255,87,51], [255,0,0], [255,211,0], [0,255,0], [0,0,255], [254,51,139], [255,131,0], [50,205,50], [0,255,255], [255,0,127], [255,218,185], [143,188,143], [135,206,250]])/255.0 # grey, red, yellow, green, blue, magenta, orange, lime, cyan, hotpink, peachpuff, darkseagreen, lightskyblue
     apoptotic_color = np.array([255,255,255])/255.0 # white
     necrotic_color = np.array([139,69,19])/255.0 # brown
+    cells_type = np.array([df_cells['cell_type']])
+    cell_cycle = np.array([df_cells['cycle_model']])
     # Colors
     Colors = np.ones((len(df_cells),4)) # 4 channels RGBO
     for index,type in enumerate(Cell_types):
-        idxs = df_cells.loc[ (df_cells['cell_type'] == type) & (df_cells['cycle_model'] < 100) ].index
+        idxs = np.where( (cells_type == type) & (cell_cycle < 100) )
         Colors[idxs,0] = Colors_default[index,0]
         Colors[idxs,1] = Colors_default[index,1]
         Colors[idxs,2] = Colors_default[index,2]
-        idxs_apoptotic = df_cells.loc[df_cells['cycle_model'] == 100].index
+        idxs_apoptotic = np.where( cell_cycle == 100 )
         Colors[idxs_apoptotic,0] = apoptotic_color[0]
         Colors[idxs_apoptotic,1] = apoptotic_color[1]
         Colors[idxs_apoptotic,2] = apoptotic_color[2]
-        idxs_necrotic = df_cells.loc[df_cells['cycle_model'] > 100].index
+        idxs_necrotic = np.where( cell_cycle > 100 )
         Colors[idxs_necrotic,0] = necrotic_color[0]
         Colors[idxs_necrotic,1] = necrotic_color[1]
         Colors[idxs_necrotic,2] = necrotic_color[2]
@@ -46,27 +48,19 @@ def header_function_default(mcds):
     time_hours = (curr_time%1440.0)//60
     time_min = ((curr_time%1440.0)%60)
     # Number of cells
-    Num_cells = len(mcds.data['discrete_cells']['ID'])
+    Num_cells = len(mcds.get_cell_df())
     title_text = "Current time: %02d days, %02d hours, and %0.2f minutes, %d agents"%(time_days,time_hours,time_min,Num_cells)
     return title_text
 
 def DrawBox(Bounds, Color, scaling):
     lines = [np.array([[Bounds['xmin'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmin'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmin']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymax'],Bounds['zmax']],[Bounds['xmax'],Bounds['ymin'],Bounds['zmax']],[Bounds['xmin'],Bounds['ymin'],Bounds['zmax']]])]
-    return actor.line(lines, Color, linewidth=0.001*scaling)
+    return actor.line(lines, Color, linewidth=0.003*scaling)
 
-def CreateScene(folder, InputFile, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), SaveImage=False, BoxCrop = None, AddBox = None, PlotNucleus=False):
-    # Reading data
-    mcds=pyMCDS(InputFile,folder)
+def CreateScene(folder, InputFile, mcds, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), FileName=None, BoxCrop = None, AddBox = None, PlotNucleus=False, PlaneXY_1=None, PlaneXY_2=None, PlaneXZ_1=None, PlaneXZ_2=None, PlaneYZ_1=None, PlaneYZ_2=None, saveVTK =False ):
     # Define domain size
-    centers = mcds.get_linear_voxels()
-    X = np.unique(centers[0, :])
-    Y = np.unique(centers[1, :])
-    Z = np.unique(centers[2, :])
-    dx = (X.max() - X.min()) / (X.shape[0]-1)
-    dy = (Y.max() - Y.min()) / (Y.shape[0]-1)
-    dz = (Z.max() - Z.min()) / (Z.shape[0]-1)
-    Bounds = {'xmin': round(mcds.data['mesh']['x_coordinates'][0,0,0]-0.5*dx), 'xmax': round(mcds.data['mesh']['x_coordinates'][-1,-1,-1]+0.5*dx), 'ymin': round(mcds.data['mesh']['y_coordinates'][0,0,0]-0.5*dy), 'ymax': round(mcds.data['mesh']['y_coordinates'][-1,-1,-1]+0.5*dy), 'zmin': round(mcds.data['mesh']['z_coordinates'][0,0,0]-0.5*dz), 'zmax': round(mcds.data['mesh']['z_coordinates'][-1,-1,-1]+0.5*dz)}
-
+    domain_range = mcds.get_xyz_range()
+    dx, dy, dz = mcds.get_mesh_spacing()
+    Bounds = {'xmin': domain_range[0][0], 'xmax': domain_range[0][1], 'ymin': domain_range[1][0], 'ymax': domain_range[1][1], 'zmin': domain_range[2][0], 'zmax': domain_range[2][1]}
     # Cell positions
     df_Cells = mcds.get_cell_df()
     if ( BoxCrop ):
@@ -117,16 +111,22 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     sphere_actor = actor.sphere(centers=C_xyz,colors=C_colors,radii=C_radii) # Cytoplasm
     showm.scene.add(sphere_actor)
     sphere_actor_cutted = None
+    sphere_actor_cutted_nucleus = None
     flag_cut = False
     ###############################################################################################
     # Planes sections
-    # box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],495]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz)) # include a XY plane on scene
-    box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],z_min_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
-    box_actorXY_max = actor.box(np.array([[domain_center[0],domain_center[1],z_max_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
-    box_actorXZ_min = actor.box(np.array([[domain_center[0],y_min_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
-    box_actorXZ_max = actor.box(np.array([[domain_center[0],y_max_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
-    box_actorYZ_min = actor.box(np.array([[x_min_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
-    box_actorYZ_max = actor.box(np.array([[x_max_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
+    if PlaneXY_1: box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],PlaneXY_1]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    else: box_actorXY_min = actor.box(np.array([[domain_center[0],domain_center[1],z_min_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5,0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    if PlaneXY_2: box_actorXY_max = actor.box(np.array([[domain_center[0],domain_center[1],PlaneXY_2]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    else: box_actorXY_max = actor.box(np.array([[domain_center[0],domain_center[1],z_max_domain]]), np.array([[1,1,0]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],domain_size[1],0.5*dz))
+    if PlaneXZ_1: box_actorXZ_min = actor.box(np.array([[domain_center[0],PlaneXZ_1,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    else: box_actorXZ_min = actor.box(np.array([[domain_center[0],y_min_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    if PlaneXZ_2: box_actorXZ_max = actor.box(np.array([[domain_center[0],PlaneXZ_2,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    else: box_actorXZ_max = actor.box(np.array([[domain_center[0],y_max_domain,domain_center[2]]]), np.array([[1,0,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(domain_size[0],0.5*dy,domain_size[2]))
+    if PlaneYZ_1: box_actorYZ_min = actor.box(np.array([[PlaneYZ_1,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.9, 0.9, 0.9,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
+    else: box_actorYZ_min = actor.box(np.array([[x_min_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
+    if PlaneYZ_2: box_actorYZ_max = actor.box(np.array([[PlaneYZ_2,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.9, 0.9, 0.9,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
+    else: box_actorYZ_max = actor.box(np.array([[x_max_domain,domain_center[1],domain_center[2]]]), np.array([[0,1,1]]), colors=(0.5, 0.5, 0.5,0.4),scales=(0.5*dx,domain_size[1],domain_size[2]))
     showm.scene.add(box_actorXY_min)
     showm.scene.add(box_actorXY_max)
     showm.scene.add(box_actorXZ_min)
@@ -179,7 +179,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         showm.scene.add(sphere_actor_cutted)
         return idx_cells.shape[0]
     def SliceCells(i_ren, _obj, _button):
-        global sphere_actor_cutted,flag_cut
+        global sphere_actor_cutted,sphere_actor_cutted_nucleus,flag_cut
         if (button_slice_label.message == 'Cut'):
             # Clear up the cells
             showm.scene.rm(sphere_actor)
@@ -218,9 +218,9 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     ###############################################################################################
     # Add referencial vectors axis
     center = np.array([[x_max_domain,y_min_domain,z_max_domain],[x_max_domain,y_min_domain,z_max_domain],[x_max_domain,y_min_domain,z_max_domain]])
-    if ( x_max_domain > 0): x_direction = np.array([-1,0,0])
-    else: x_direction = np.array([1,0,0])
-    y_direction = np.array([0,1,0])
+    x_direction = np.array([-1,0,0])
+    x_direction = np.array([0,1,0])
+    y_direction = np.array([0,0,-1])
     if ( z_max_domain > 0): z_direction = np.array([0,0,-1])
     else: z_direction = np.array([0,0,1])
     direction_arrow = np.array([x_direction,y_direction,z_direction])
@@ -230,7 +230,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     substrates = mcds.get_substrate_names()
     substrate_combobox = ui.ComboBox2D(items=substrates, placeholder="Choose substrate", position=(round(0.15*scaling), round(0.05*scaling)), size=(round(0.5*scaling), round(0.1*scaling)), font_size=scaling//50)
     # Preparing pyvista mesh
-    substrate0 = np.transpose(mcds.get_concentrations(substrates[0]), (1,0,2)) # CHECK ORDER ON PYMCDS
+    substrate0 = np.transpose(mcds.get_concentration(substrates[0]))
     # Create the spatial reference
     grid = pv.UniformGrid()
     # Set the grid dimensions: shape + 1 because we want to inject our values on
@@ -244,7 +244,7 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     pv.global_theme.cmap = 'coolwarm_r' # cmap palette color
     # Add others Substrates
     for i in range(1,len(substrates)):
-        grid.cell_data.set_array( np.transpose(mcds.get_concentrations(substrates[i]), (1,0,2)).flatten(order="F"),substrates[i]) # CHECK ORDER ON PYMCDS
+        grid.cell_data.set_array( np.transpose(mcds.get_concentration(substrates[i])).flatten(order="F"),substrates[i])
 
     def change_substrate(combobox):
         selected_substrate = combobox.selected_text
@@ -269,13 +269,18 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
         for actor  in Actors:
             for element in actor:
                 element.set_visibility(False)
-        # box_actorXY_min.SetVisibility(True) # include a XY plane on scene visible
-        box_actorXY_min.SetVisibility(False)
-        box_actorXY_max.SetVisibility(False)
-        box_actorXZ_min.SetVisibility(False)
-        box_actorXZ_max.SetVisibility(False)
-        box_actorYZ_min.SetVisibility(False)
-        box_actorYZ_max.SetVisibility(False)
+        if PlaneXY_1: box_actorXY_min.SetVisibility(True)
+        else: box_actorXY_min.SetVisibility(False)
+        if PlaneXY_2: box_actorXY_max.SetVisibility(True)
+        else: box_actorXY_max.SetVisibility(False)
+        if PlaneXZ_1: box_actorXZ_min.SetVisibility(True)
+        else: box_actorXZ_min.SetVisibility(False)
+        if PlaneXZ_2: box_actorXZ_max.SetVisibility(True)
+        else: box_actorXZ_max.SetVisibility(False)
+        if PlaneYZ_1: box_actorYZ_min.SetVisibility(True)
+        else: box_actorYZ_min.SetVisibility(False)
+        if PlaneYZ_2: box_actorYZ_max.SetVisibility(True)
+        else: box_actorYZ_max.SetVisibility(False)
     hide_all_widgets()
     def MenuOption():
         hide_all_widgets()
@@ -337,39 +342,46 @@ def CreateScene(folder, InputFile, coloring_function = coloring_function_default
     # print(showm.scene.get_camera())
     ###############################################################################################
     # Save image
-    if ( SaveImage ):
+    if ( FileName ):
         hide_all_widgets()
         listbox.set_visibility(False)
-        FileName = os.path.splitext(InputFile)[0]+".jpg"
-        FileNameVTK = os.path.splitext(InputFile)[0]+".vtk"
+        FileName = FileName+".jpg"
+        FileNameVTK = FileName+".vtk"
         if ( type(folder) == str ):
             pathSave = folder+FileName
             pathSaveVTK = folder+FileNameVTK
         else:
-            pathSave = folder / FileName
-            pathSaveVTK = folder / FileNameVTK
+            pathSave = str(folder)+FileName
+            pathSaveVTK = str(folder)+FileNameVTK
         # window.snapshot(showm.scene,size=size_window,fname=pathSave)
         window.record(showm.scene, out_path=pathSave, size=size_window, reset_camera=False)
-        # grid.save(pathSaveVTK,binary=False) # save vtk file
+        if (saveVTK) :  grid.save(pathSaveVTK,binary=False) # save vtk file
         showm.scene.rm_all() # clean up the scene
     else:
         showm.start()
 
-def CreateSnapshots(folder, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), file=None, BoxCrop = None, AddBox = None, PlotNucleus=False):
+def CreateSnapshots(folder, coloring_function = coloring_function_default, header_function = header_function_default, size_window=(1000,1000), file=None, add_name=None, BoxCrop = None, AddBox = None, PlotNucleus=False, PlaneXY_1=None, PlaneXY_2=None, PlaneXZ_1=None, PlaneXZ_2=None, PlaneYZ_1=None, PlaneYZ_2=None):
     if (file):
-        CreateScene(folder,file,coloring_function=coloring_function, header_function=header_function,size_window=size_window,SaveImage=True, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus)
+        if (add_name): FileName = os.path.splitext(file)[0]+add_name
+        else: FileName = os.path.splitext(file)[0]
+        CreateScene(folder,file,pc.pyMCDS(str(folder)+file, graph=False),coloring_function=coloring_function, header_function=header_function,size_window=size_window,FileName=FileName, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus,PlaneXY_1=PlaneXY_1,PlaneXY_2=PlaneXY_2,PlaneXZ_1=PlaneXZ_1,PlaneXZ_2=PlaneXZ_2,PlaneYZ_1=PlaneYZ_1,PlaneYZ_2=PlaneYZ_2)
     else:
-        files = list(folder.glob('out*.xml'))
-        print(files)
+        mcdsts = pc.pyMCDSts(folder, graph=False)  # generate a mcds time series instance
+        ls_xml = mcdsts.get_xmlfile_list()
+        l_mcds = mcdsts.read_mcds() # load all snapshots
         # Make snapshots
-        for file in files:
-            CreateScene(folder,os.path.basename(file),coloring_function=coloring_function, header_function=header_function,size_window=size_window,SaveImage=True, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus)
+        for i, mcds in enumerate(l_mcds):
+            if (add_name): FileName = "/output%08d"%i+add_name
+            else: FileName = "/output%08d"%i
+            CreateScene(folder,os.path.basename(ls_xml[i]),mcds,coloring_function=coloring_function, header_function=header_function,size_window=size_window,FileName=FileName, BoxCrop = BoxCrop, AddBox = AddBox, PlotNucleus=PlotNucleus,PlaneXY_1=PlaneXY_1,PlaneXY_2=PlaneXY_2,PlaneXZ_1=PlaneXZ_1,PlaneXZ_2=PlaneXZ_2,PlaneYZ_1=PlaneYZ_1,PlaneYZ_2=PlaneYZ_2)
 
 if __name__ == '__main__':
     if (len(sys.argv) != 3 and len(sys.argv) != 2):
       print("Please provide\n 1 arg [folder]: to taking snapshots from the folder \n or provide 2 args [folder] [frame ID]: to interact with scene!")
       sys.exit(1)
+    folder = Path(sys.argv[1])
     if (len(sys.argv) == 3):
-      CreateScene(Path(sys.argv[1]),"output%08d.xml"%int(sys.argv[2]))
+      file = "/output%08d.xml"%int(sys.argv[2])
+      CreateScene(folder,file,pc.pyMCDS(str(folder)+file, graph=False))
     if (len(sys.argv) == 2):
-      CreateSnapshots(Path(sys.argv[1]))
+      CreateSnapshots(folder)
