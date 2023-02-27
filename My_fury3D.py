@@ -67,21 +67,6 @@ def my_custom_header_function(mcds):
     title_text = "Current time: %02d days, %02d hours, and %0.2f minutes \n\n RFP+: %d agents and GFP+: %d agents"%(time_days,time_hours,time_min,Count_RFP,Count_GFP)
     return title_text
 
-def generate_data_from_simualtions(folder, fileName):
-    import pickle
-    dic_data = {}
-    mcdsts = pc.pyMCDSts(folder, graph=False)  # generate a mcds time series instance
-    ls_xml = mcdsts.get_xmlfile_list()
-    l_mcds = mcdsts.read_mcds() # load all snapshots
-    # Make snapshots
-    for i, mcds in enumerate(l_mcds):
-        dic_data['domain_range'] = mcds.get_xyz_range()
-        dic_data['dx'], dic_data['dy'], dic_data['dx'] = mcds.get_xyz_range()
-        dic_data['time'] = mcds.get_time()
-        dic_data['df_cells']  = mcds.get_cell_df()
-    with open(fileName, 'wb') as file:
-        pickle.dump(dic_data, file)
-
 if __name__ == '__main__':
     if (len(sys.argv) != 3 and len(sys.argv) != 2):
       print("Please provide\n 1 arg [folder]: to taking snapshots from the folder \n or provide 2 args [folder] [frame ID]: to interact with scene!")
@@ -107,5 +92,4 @@ if __name__ == '__main__':
       # CreateSnapshots(folder, coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, AddBox = AddBox, file=file, add_name='_Box_Ki67')
       # CreateSnapshots(folder, coloring_function=coloring_function_KI67_stain, header_function=my_custom_header_function,size_window=(5000,5000), PlotNucleus=True, BoxCrop = AddBox, file=file, add_name='_BoxCrop_Ki67', PlaneYZ_1=PlaneYZ1, PlaneYZ_2=PlaneYZ2)
     if (len(sys.argv) == 2):
-        generate_data_from_simualtions(Path(sys.argv[1]))
-      # CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, size_window=(5000,5000), PlotNucleus=True)
+      CreateSnapshots(Path(sys.argv[1]), coloring_function=my_custom_coloring_function, header_function=my_custom_header_function, size_window=(5000,5000), PlotNucleus=True)
